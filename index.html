@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Algorithm Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#0e1116; --text:#e8eef9; --muted:#9fb1d1; --card:#121a28; --accent:#6aa6ff; --radius:14px; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui; background:var(--bg); color:var(--text); }
+    .wrap { max-width:900px; margin:32px auto; padding:0 16px; }
+    h1 { margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 18px; }
+    .card {
+      background:linear-gradient(180deg,#192132,#0e1420);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,.3);
+    }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    button {
+      padding:10px 14px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.08);
+      background:#142138; color:#cfe1ff; font-weight:700; cursor:pointer;
+    }
+    button:hover { outline:0 0 0 3px rgba(106,166,255,.25); }
+    .muted { color:var(--muted); }
+    canvas {
+      background:linear-gradient(180deg,#0f1624,#0b1321);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      width:100%; height:280px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Algorithm Visualizer</h1>
+    <p class="sub">Bubble vs. Insertion — animated on Canvas. Shuffle, then run either algorithm.</p>
+
+    <div class="card">
+      <div class="row">
+        <button id="shuffle">Shuffle</button>
+        <button id="bubble">Bubble Sort</button>
+        <button id="insertion">Insertion Sort</button>
+        <span class="muted" id="status"></span>
+      </div>
+      <canvas id="viz" width="860" height="280"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas setup ---
+    const canvas = document.getElementById('viz');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    const N = 60;
+    let arr = Array.from({ length: N }, () => Math.floor(Math.random() * 100) + 5);
+    let running = false;
+
+    function setStatus(t) { statusEl.textContent = t; }
+
+    function draw(highlightIndex = -1) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width / N;
+      arr.forEach((v, i) => {
+        ctx.fillStyle = i === highlightIndex ? '#6aa6ff' : '#9fb1d1';
+        ctx.fillRect(i * w + 1, canvas.height - v * 2, w - 2, v * 2);
+      });
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // --- Controls ---
+    document.getElementById('shuffle').onclick = () => {
+      if (running) return;
+      arr = arr.sort(() => Math.random() - 0.5);
+      draw();
+      setStatus('Shuffled');
+    };
+
+    document.getElementById('bubble').onclick = async () => {
+      if (running) return;
+      running = true;
+      setStatus('Running Bubble Sort...');
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N - i - 1; j++) {
+          if (arr[j] > arr[j + 1]) [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+          draw(j);
+          await sleep(10);
+        }
+      }
+      running = false;
+      setStatus('Done (Bubble Sort)');
+    };
+
+    document.getElementById('insertion').onclick = async () => {
+      if (running) return;
+      running = true;
+      setStatus('Running Insertion Sort...');
+      for (let i = 1; i < N; i++) {
+        let k = arr[i], j = i - 1;
+        while (j >= 0 && arr[j] > k) {
+          arr[j + 1] = arr[j];
+          j--;
+          draw(j + 1);
+          await sleep(10);
+        }
+        arr[j + 1] = k;
+        draw(i);
+        await sleep(10);
+      }
+      running = false;
+      setStatus('Done (Insertion Sort)');
+    };
+
+    // --- Tiny Unit Tests ---
+    // Uses synchronous versions of the algorithms for correctness checks.
+    function assert(cond, msg) {
+      if (!cond) throw new Error('Test failed: ' + msg);
+    }
+
+    function testSort(fn, name) {
+      const original = [5, 1, 4, 2];
+      const expected = [1, 2, 4, 5];
+      const copy = [...original];
+      fn(copy);
+      assert(
+        JSON.stringify(copy) === JSON.stringify(expected),
+        `${name} sort failed`
+      );
+    }
+
+    function bubbleSync(arr) {
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = 0; j < arr.length - i - 1; j++) {
+          if (arr[j] > arr[j + 1]) [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+        }
+      }
+    }
+
+    function insertionSync(arr) {
+      for (let i = 1; i < arr.length; i++) {
+        let k = arr[i], j = i - 1;
+        while (j >= 0 && arr[j] > k) {
+          arr[j + 1] = arr[j];
+          j--;
+        }
+        arr[j + 1] = k;
+      }
+    }
+
+    try {
+      testSort(bubbleSync, 'Bubble');
+      testSort(insertionSync, 'Insertion');
+      console.log('✅ All algorithm tests passed!');
+    } catch (e) {
+      console.error(e.message);
+    }
+
+    // Initial draw
+    draw();
+  </script>
+</body>
+</html>
